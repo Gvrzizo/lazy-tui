@@ -186,14 +186,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         return row;
     };
 
-
     static int sel = 0;
-    // option.on_enter = [&]() {
-    //     // 这里只是演示：通过当前 sel 拿到数据并执行指令
-    //     // const auto& target = parsedAssignments[sel];
-    //     // std::system(("open " + target.link).c_str());
-    //     const auto &tar = parsedAssignments[sel];
-    // };
     static std::vector<std::string> placeholders(parsedAssignments.size(), "");
     static auto menu = Menu(&placeholders, &sel, option);
 
@@ -205,7 +198,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             separator(),
             file_menu->Render() | vscroll_indicator | frame | size(HEIGHT, EQUAL, 12),
             separator(),
-            text(" Enter: 选择/进入 | q: 取消 ") | hcenter | dim,
+            text(" Enter: 选择/进入 | l: 进入 | h: 上一级目录 | q, s: 关闭窗口 ") | hcenter | dim,
         }) | border | bgcolor(Color::Black) | size(WIDTH, EQUAL, 60);
     });
 
@@ -224,7 +217,9 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                 vbox({
                     text("截止日期: " + parsedAssignments[sel].deadline) | color(Color::Red),
                     text("跳转链接: " + parsedAssignments[sel].link) | color(Color::BlueLight),
-                }))
+                })),
+            separator(),
+            text(" v: 查看作业详情 | s: 提交作业 | q, h: 回到主菜单 ") | hcenter | dim,
         }) | border;
     });
 
@@ -242,19 +237,6 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         Button("关闭窗口", [&] {modalShow = 0;}, ButtonOption::Animated()),
         resRend,
     });
-
-    // static auto resComp = CatchEvent(resRend, [&](Event e) {
-    //     if (e == Event::Character('q')) {
-    //         modalShow = 0;
-    //         return true;
-    //     }
-    //     // 可选：如果想支持 'v' 或 'h' 也关闭 Modal，可在此添加
-    //     // if (e == Event::Character('v') || e == Event::Character('h')) {
-    //     //     modalShow = 0;
-    //     //     return true;
-    //     // }
-    //     return false;
-    // }) | borderDouble | bgcolor(Color::Black) | size(WIDTH, LESS_THAN, 80);
 
     renderer |= Modal(resComp, &modalShow);
     renderer |= Modal(submit_window, &fsShow);
@@ -314,7 +296,10 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             return true;
         }
         if (e == Event::Character("s")) {
-            if (!fsShow) fsShow = 1;
+            if (!fsShow) {
+                refresh_files();
+                fsShow = 1;
+            }
             return true;
         }
         return false;

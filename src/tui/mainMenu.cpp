@@ -10,7 +10,7 @@ Component mainMenu(ScreenInteractive &screen, int &cur) {
     static std::vector<std::string> entries = {
         "Course",
         "Assignment",
-        "Resource",
+        "Resource(WIP)",
         "Quit"
     };
     static int sel = 0;
