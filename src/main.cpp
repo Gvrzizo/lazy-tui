@@ -5,6 +5,7 @@
 
 #include"tui/mainMenu.hpp"
 #include"tui/course.hpp"
+#include"tui/assignment.hpp"
 
 int main() {
     using namespace ftxui;
@@ -15,13 +16,14 @@ int main() {
     auto curTab = Container::Tab({
         mainMenu(screen, cur),
         course(screen, cur),
+        assignment(screen, cur),
     }, &cur);
 
     auto mainComponent = CatchEvent(curTab, [&](Event e) {
-        if (e == Event::Character('q') && cur) {
-            cur = 0;
-            return true;
-        }
+        // if (e == Event::Character('q') && cur) {
+        //     cur = 0;
+        //     return true;
+        // }
         return false;
     });
 

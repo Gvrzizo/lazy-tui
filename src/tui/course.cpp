@@ -4,8 +4,11 @@
 #include<ftxui/component/screen_interactive.hpp>
 #include<string>
 #include<iostream>
+#include<vector>
 
 using namespace ftxui;
+
+namespace {
 
 struct Course {
     std::string id;
@@ -88,15 +91,16 @@ std::string formatTeacher(const std::string& full_list, int max_count = 3) {
     }
 
     if (names.size() <= max_count) {
-        return full_list; // 老师不多，直接返回
+        return full_list;
     }
 
-    // 拼接前 max_count 个老师，后面加等
     std::string result = names[0];
     for (int i = 1; i < max_count; ++i) {
         result += ", " + names[i];
     }
     return result + " 等";
+}
+
 }
 
 Component course(ftxui::ScreenInteractive &screen, int &cur) {
@@ -144,5 +148,11 @@ Component course(ftxui::ScreenInteractive &screen, int &cur) {
             menu->Render() | frame | vscroll_indicator | flex,
         }) | border;
     });
-    return renderer;
+    return renderer | CatchEvent([&](Event e) {
+        if (e == Event::Character('q') || e == Event::Character('h')) {
+            cur = 0;
+            return true;
+        }
+        return false;
+    });
 }

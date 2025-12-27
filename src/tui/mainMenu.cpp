@@ -22,9 +22,9 @@ Component mainMenu(ScreenInteractive &screen, int &cur) {
 
     return menu
         | CatchEvent([&](Event e) {
-            if (e == Event::Return) {
+            if (e == Event::Return || e == Event::Character("l")) {
                 if (sel == 0) cur = 1;
-                if (sel == 1) cur = 0;
+                if (sel == 1) cur = 2;
                 if (sel == 2) cur = 0;
                 if (sel == 3) screen.Exit();
                 return true;
