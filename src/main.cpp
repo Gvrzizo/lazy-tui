@@ -10,7 +10,7 @@
 int main() {
     using namespace ftxui;
 
-    auto screen = ScreenInteractive::TerminalOutput();
+    auto screen = ScreenInteractive::FullscreenAlternateScreen();
     static int cur = 0;
 
     auto curTab = Container::Tab({
@@ -20,10 +20,6 @@ int main() {
     }, &cur);
 
     auto mainComponent = CatchEvent(curTab, [&](Event e) {
-        // if (e == Event::Character('q') && cur) {
-        //     cur = 0;
-        //     return true;
-        // }
         return false;
     });
 

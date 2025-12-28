@@ -5,6 +5,7 @@
 #include<string>
 #include<iostream>
 #include<vector>
+#include<thread>
 
 using namespace ftxui;
 
@@ -104,8 +105,26 @@ std::string formatTeacher(const std::string& full_list, int max_count = 3) {
 }
 
 Component course(ftxui::ScreenInteractive &screen, int &cur) {
-    static std::string cont = lazy::run("lazy course list -A");
-    static auto parsedCourses = parseCourseTable(cont);
+    // static std::string cont = lazy::run("lazy course list -A");
+    static std::vector<Course> parsedCourses;
+    static bool loading = 1;
+    static std::vector<std::string> placeholders;
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+        std::thread([&]() {
+            // 在后台线程执行耗时操作
+            std::string cont = lazy::run("lazy course list -A");
+            auto data = parseCourseTable(cont);
+
+            // 切换回主线程前更新数据
+            parsedCourses = std::move(data);
+            placeholders.assign(parsedCourses.size(), "");
+            loading = false;
+
+            // Let the screen reload or sth idk
+            screen.PostEvent(Event::Custom);
+        }).detach();
+    });
     // for (auto i : parsedCourses) {
     //     std::cout << i.id << i.name << i.teacher << i.time << i.department << i.year << std::endl;
     // }
@@ -118,6 +137,8 @@ Component course(ftxui::ScreenInteractive &screen, int &cur) {
     // }
     MenuOption option;
     option.entries_option.transform = [&](const EntryState& state) {
+        if (loading) return text("Loading...");
+
         const auto& c = parsedCourses[state.index];
 
         std::string teacher_short = formatTeacher(c.teacher, 3);
@@ -136,21 +157,116 @@ Component course(ftxui::ScreenInteractive &screen, int &cur) {
 
         return row;
     };
-    static std::vector<std::string> placeholders(parsedCourses.size(), "");
+
+    static std::vector<std::string> popupEntries = {
+        "Syllabus(WIP)",
+        "Coursewares(WIP)",
+        "Members",
+        "Rollcalls",
+        "Quit",
+    };
+
+    static bool popupMenuShow = 0;
+    static int popupSel = 0;
+    MenuOption popupOpt;
+    static auto popupMenu = Menu(&popupEntries, &popupSel, popupOpt);
+    static auto popupMenuRend = Renderer(popupMenu, [&] {
+        return vbox({
+            popupMenu->Render() | center | flex
+        }) | border | flex;
+    });
+
+    static std::string popCont;
+    static auto popupRend = Renderer([&] {
+        return vbox({
+            paragraph(popCont) | center | flex,
+            separator(),
+            text(" 按 [q], [h] 或是按钮关闭 ") | hcenter | dim,
+        }) | border | flex;
+    });
+    static bool popupShow = 0;
+    static auto popup = Container::Vertical({
+        Button("关闭窗口", [&] {popupShow = 0;}, ButtonOption::Animated()),
+        popupRend,
+    });
+
     static int sel = 0;
     // static auto menu = Menu(&menu_entries, &sel, option);
     static auto menu = Menu(&placeholders, &sel, option);
 
-    auto renderer = Renderer(menu, [&] {
+    static auto renderer = Renderer(menu, [&] {
+        if (loading) {
+            return vbox({
+                text("课程列表") | hcenter | bold,
+                separator(),
+                text("正在获取数据，请稍候...") | center | flex
+            }) | border;
+        }
+
         return vbox({
             text("课程列表") | hcenter | bold,
+            separator(),
+            paragraph(" [Enter]: 查看课程详情 |  [q], [h]: 回到主菜单 | [j], [k], [↑], [↓] 选择条目 ") | hcenter | dim,
             separator(),
             menu->Render() | frame | vscroll_indicator | flex,
         }) | border;
     });
+
+    renderer |= Modal(popupMenuRend, &popupMenuShow);
+    renderer |= Modal(popup, &popupShow);
+
     return renderer | CatchEvent([&](Event e) {
+        if (popupShow) {
+            if (e == Event::Character('q') || e == Event::Character('h')) {
+                popupShow = 0;
+                return true;
+            }
+            return false;
+        }
+        if (popupMenuShow) {
+            if (e == Event::Character('q') || e == Event::Character('h')) {
+                popupMenuShow = 0;
+                return true;
+            }
+            if (e == Event::Character('l') || e == Event::Return) {
+                if (popupSel == 4) {
+                    popupMenuShow = 0;
+                    return true;
+                }
+                if (popupSel == 3) {
+                    std::thread([&] {
+                        std::string id = parsedCourses[sel].id;
+                        popCont = "读取中......";
+                        popupShow = 1;
+                        screen.RequestAnimationFrame();
+                        auto data = lazy::run("lazy course view rollcalls " + id + " -A");
+                        popCont = std::move(data);
+                        screen.RequestAnimationFrame();
+                    }).detach();
+                    return true;
+                }
+                if (popupSel == 2) {
+                    std::thread([&] {
+                        std::string id = parsedCourses[sel].id;
+                        popCont = "读取中......";
+                        popupShow = 1;
+                        screen.RequestAnimationFrame();
+                        auto data = lazy::run("lazy course view members " + id);
+                        popCont = std::move(data);
+                        screen.RequestAnimationFrame();
+                    }).detach();
+                    return true;
+                }
+                return true;
+            }
+            return false;
+        }
         if (e == Event::Character('q') || e == Event::Character('h')) {
             cur = 0;
+            return true;
+        }
+        if (e == Event::Return) {
+            popupMenuShow = 1;
             return true;
         }
         return false;

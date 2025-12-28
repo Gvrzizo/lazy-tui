@@ -7,7 +7,11 @@
 #include<sstream>
 #include<regex>
 #include<iostream>
-#include <filesystem>
+#include<fstream>
+#include<filesystem>
+#include<thread>
+#include<chrono>
+
 namespace fs = std::filesystem;
 
 using namespace ftxui;
@@ -112,26 +116,77 @@ std::string findResourceIdByName(const std::string& raw_output, const std::strin
     return ""; // 未找到
 }
 
+std::string getConfigPath() {
+    std::string home = std::getenv("HOME");
+    if (!home.empty()) return home + "/.config/.lazy_tui_config";
+    return ".lazy_tui_config";
+}
+
+void savePath(const std::string& path) {
+    std::ofstream ofs(getConfigPath());
+    if (ofs.is_open()) {
+        ofs << path;
+        ofs.close();
+    }
+}
+
+std::string loadPath() {
+    std::ifstream ifs(getConfigPath());
+    std::string path;
+    if (ifs.is_open() && std::getline(ifs, path)) {
+        if (!path.empty() && fs::exists(path)) {
+            return path;
+        }
+    }
+    std::string home = std::getenv("HOME");
+    if (!home.empty()) return home;
+    home = std::getenv("USERPROFILE");
+    if (!home.empty()) return home;
+    return ".";
+}
+
 } // namespace
 
 Component assignment(ScreenInteractive &screen, int &cur) {
     // 1. 获取并解析数据
-    static std::string cont = lazy::run("lazy assignment todo");
-    static auto parsedAssignments = parseAssignmentTodo(cont);
+    // static std::string cont = lazy::run("lazy assignment todo");
+    // static auto parsedAssignments = parseAssignmentTodo(cont);
+    static std::string cont;
+    static std::vector<Assignment> parsedAssignments;
+    static bool loading = 1;
 
     static bool modalShow = 0;
     static bool fsShow = 0;
-    static std::string view_content = "";
+    static std::string viewContent = "";
 
-    // static fs::path current_path = fs::current_path();
-    static fs::path current_path = fs::path(std::getenv("HOME"));
-    static std::vector<std::string> file_list;
-    static int file_sel = 0;
-    auto refresh_files = [&]() {
-        file_list.clear();
-        file_list.push_back(".. [返回上级]");
+    static std::vector<std::string> placeholders;
+
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+        std::thread([&]() {
+            // 在后台线程执行耗时操作
+            std::string cont = lazy::run("lazy assignment todo");
+            auto data = parseAssignmentTodo(cont);
+
+            // 切换回主线程前更新数据
+            parsedAssignments = std::move(data);
+            placeholders.assign(parsedAssignments.size(), "");
+            loading = false;
+
+            screen.PostEvent(Event::Custom);
+        }).detach();
+    });
+
+    // static fs::path currentPath = fs::currentPath();
+    // static fs::path currentPath = fs::path(std::getenv("HOME"));
+    static fs::path currentPath = loadPath();
+    static std::vector<std::string> fileList;
+    static int fileSel = 0;
+    auto refreshFiles = [&]() {
+        fileList.clear();
+        fileList.push_back(".. [返回上级]");
         std::vector<fs::directory_entry> dirs, files;
-        for (const auto& entry : fs::directory_iterator(current_path)) {
+        for (const auto& entry : fs::directory_iterator(currentPath)) {
             if (entry.is_directory()) dirs.push_back(entry);
             else files.push_back(entry);
         }
@@ -139,15 +194,17 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             return a.path().filename().string() < b.path().filename().string();
         };
         std::sort(dirs.begin(), dirs.end(), by_name); std::sort(files.begin(), files.end(), by_name);
-        for (const auto& d : dirs) file_list.push_back(d.path().filename().string());
-        for (const auto& f : files) file_list.push_back(f.path().filename().string());
+        for (const auto& d : dirs) fileList.push_back(d.path().filename().string());
+        for (const auto& f : files) fileList.push_back(f.path().filename().string());
     };
 
-    refresh_files();
+    refreshFiles();
 
     // 2. 菜单配置
     MenuOption option, fsopt;
     option.entries_option.transform = [&](const EntryState& state) {
+        if (loading) return text("Loading...");
+
         const auto& a = parsedAssignments[state.index];
 
         auto row = hbox({
@@ -170,8 +227,8 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         return row;
     };
     fsopt.entries_option.transform = [&](const EntryState& state) {
-        const std::string selected = file_list[state.index];
-        fs::path p = current_path / selected;
+        const std::string selected = fileList[state.index];
+        fs::path p = currentPath / selected;
 
         auto row = hbox({
             text((!state.index || fs::is_directory(p) ? "   " : "   ") + selected) | bold | (fs::is_directory(p)
@@ -187,28 +244,45 @@ Component assignment(ScreenInteractive &screen, int &cur) {
     };
 
     static int sel = 0;
-    static std::vector<std::string> placeholders(parsedAssignments.size(), "");
     static auto menu = Menu(&placeholders, &sel, option);
 
-    static auto file_menu = Menu(&file_list, &file_sel, fsopt);
-    auto submit_window = Renderer(file_menu, [&] {
+    static auto fileMenu = Menu(&fileList, &fileSel, fsopt);
+    static auto submitWindow = Renderer(fileMenu, [&] {
         return vbox({
             text(" 选择提交文件 ") | hcenter | bold,
-            text(current_path.string()) | dim | hcenter,
+            text(currentPath.string()) | dim | hcenter,
             separator(),
-            file_menu->Render() | vscroll_indicator | frame | size(HEIGHT, EQUAL, 12),
+            fileMenu->Render() | vscroll_indicator | frame | flex, //size(HEIGHT, EQUAL, 12),
             separator(),
-            text(" Enter: 选择/进入 | l: 进入 | h: 上一级目录 | q, s: 关闭窗口 ") | hcenter | dim,
-        }) | border | bgcolor(Color::Black) | size(WIDTH, EQUAL, 60);
+            paragraph(" [Enter]: 选择/进入 | [l]: 进入 | [h]: 上一级目录 | [q], [s]: 退出 ") | hcenter | dim,
+        }) | border | bgcolor(Color::Black) | flex; //size(WIDTH, EQUAL, 60);
+    });
+    static bool subNoti = 0;
+    static std::string inRes = "提交中......";
+
+    static auto showRes = Renderer([&] {
+        return vbox({
+            text(inRes) | center | flex
+        }) | border;
     });
 
     // 3. 渲染最终界面
     static auto renderer = Renderer(menu, [&] {
+        if (loading) {
+            return vbox({
+                text(" [v]: 查看作业详情 | [s]: 提交作业 | [q], [h]: 回到主菜单 ") | hcenter | dim,
+                separator(),
+                text("正在获取数据，请稍候...") | center | flex,
+            }) | border | flex;
+        }
+
         return vbox({
             hbox({
                 text(" 待办作业 ") | bold | bgcolor(Color::White) | color(Color::Black),
                 text(" 共 " + std::to_string(parsedAssignments.size()) + " 项") | color(Color::GrayLight),
             }),
+            separator(),
+            paragraph(" [v]: 查看作业详情 | [s]: 提交作业 | [q], [h]: 回到主菜单 | [j], [k], [↑], [↓] 选择条目 ") | hcenter | dim,
             separator(),
             menu->Render() | frame | vscroll_indicator | flex,
             separator(),
@@ -218,8 +292,6 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                     text("截止日期: " + parsedAssignments[sel].deadline) | color(Color::Red),
                     text("跳转链接: " + parsedAssignments[sel].link) | color(Color::BlueLight),
                 })),
-            separator(),
-            text(" v: 查看作业详情 | s: 提交作业 | q, h: 回到主菜单 ") | hcenter | dim,
         }) | border;
     });
 
@@ -227,10 +299,10 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         return vbox({
             text(" 作业详情 ") | hcenter | bold,
             separator(),
-            paragraph(view_content) | vscroll_indicator | frame | size(HEIGHT, LESS_THAN, 20),
+            paragraph(viewContent) | vscroll_indicator | frame | size(HEIGHT, LESS_THAN, 20),
             separator(),
-            text(" 按 [q] [h] [v] 或是按钮关闭 ") | hcenter | dim,
-        }) | borderDouble | bgcolor(Color::Black) | size(WIDTH, LESS_THAN, 80);
+            text(" 按 [q], [h], [v] 或是按钮关闭 ") | hcenter | dim,
+        }) | borderDouble | bgcolor(Color::Black) | flex;// size(WIDTH, LESS_THAN, 80);
     });
 
     static auto resComp = Container::Vertical({
@@ -239,7 +311,8 @@ Component assignment(ScreenInteractive &screen, int &cur) {
     });
 
     renderer |= Modal(resComp, &modalShow);
-    renderer |= Modal(submit_window, &fsShow);
+    renderer |= Modal(submitWindow, &fsShow);
+    renderer |= Modal(showRes, &subNoti);
 
     return CatchEvent(renderer, [&](Event e) {
         if (modalShow) {
@@ -251,38 +324,53 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         }
         if (fsShow) {
             if (e == Event::Character('s') || e == Event::Character('q')) {
+                savePath(currentPath.string());
                 fsShow = 0;
                 return true;
             }
             if (e == Event::Return || e == Event::Character('l')) {
-                if (!file_sel) {
-                    current_path = current_path.parent_path();
-                    refresh_files();
+                if (!fileSel) {
+                    currentPath = currentPath.parent_path();
+                    refreshFiles();
                     return true;
                 }
                 else {
-                    std::string selected = file_list[file_sel];
-                    fs::path p = current_path / selected;
+                    std::string selected = fileList[fileSel];
+                    fs::path p = currentPath / selected;
                     if (fs::is_directory(p)) {
-                        current_path = p;
-                        refresh_files();
+                        currentPath = p;
+                        refreshFiles();
                     }
                     else if (e == Event::Return) {
-                        lazy::run("lazy resource upload " + p.string());
-                        std::string resList = lazy::run("lazy resource list");
-                        std::string id = findResourceIdByName(resList, selected);
-                        lazy::run("lazy assignment submit " + parsedAssignments[sel].id + " -f '" + id + "'");
-                        fsShow = 0;
+                        std::thread([&] {
+                            subNoti = 1;
+                            screen.RequestAnimationFrame();
+                            savePath(currentPath.string());
+                            lazy::run("lazy resource upload '" + p.string() + "'");
+                            std::string resList = lazy::run("lazy resource list");
+                            std::string id = findResourceIdByName(resList, selected);
+                            lazy::run("lazy assignment submit " + parsedAssignments[sel].id + " -f '" + id + "'");
+                            // std::this_thread::sleep_for(std::chrono::seconds(1));
+                            std::thread([&] {
+                                inRes = "提交完毕！";
+                                screen.RequestAnimationFrame();
+                                std::this_thread::sleep_for(std::chrono::seconds(1));
+                                fsShow = 0;
+                                subNoti = 0;
+                                inRes = "提交中......";
+                                screen.RequestAnimationFrame();
+                            }).detach();
+                        }).detach();
                     }
                     return true;
                 }
-                if (e == Event::Character('h')) {
-                    current_path = current_path.parent_path();
-                    refresh_files();
-                    return true;
-                }
-                return false;
             }
+            if (e == Event::Character('h')) {
+                currentPath = currentPath.parent_path();
+                refreshFiles();
+                return true;
+            }
+            return false;
         }
         if (e == Event::Character('h') || e == Event::Character('q')) {
             cur = 0;
@@ -290,14 +378,20 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         }
         if (e == Event::Character('v')) {
             if (!modalShow) {
-                view_content = lazy::run("lazy assignment view " + parsedAssignments[sel].id);
+                viewContent = "Loading...";
                 modalShow = 1;
+                std::string target_id = parsedAssignments[sel].id;
+                std::thread([&screen, target_id]() {
+                    std::string result = lazy::run("lazy assignment view " + target_id);
+                    viewContent = std::move(result);
+                    screen.PostEvent(Event::Custom);
+                }).detach();
             }
             return true;
         }
         if (e == Event::Character("s")) {
             if (!fsShow) {
-                refresh_files();
+                refreshFiles();
                 fsShow = 1;
             }
             return true;
@@ -305,16 +399,3 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         return false;
     });
 }
-
-// Component viewMod() {
-//     return 0;
-// }
-//
-// Component assignment(ScreenInteractive &screen, int &cur) {
-//     static int assid = 0;
-//     static bool modalShow = 0;
-//     static auto resComp = assignmentMenu(screen, cur);
-//     static auto modComp = viewMod();
-//     resComp |= Modal(modComp, &modalShow);
-//     return resComp;
-// }

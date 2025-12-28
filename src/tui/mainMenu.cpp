@@ -18,9 +18,19 @@ Component mainMenu(ScreenInteractive &screen, int &cur) {
     MenuOption opt;
     opt.on_enter = screen.ExitLoopClosure();
 
-    auto menu = Menu(&entries, &sel, opt);
+    static auto menu = Menu(&entries, &sel, opt);
 
-    return menu
+    static auto menuRend = Renderer(menu, [&] {
+        return vbox({
+            text("主菜单") | hcenter | bold,
+            separator(),
+            paragraph(" [Enter], [l]: 选择条目 |  [q]: 退出 | [j], [k], [↑], [↓] 选择条目 ") | hcenter | dim,
+            separator(),
+            menu->Render() | frame | vscroll_indicator | flex,
+        }) | flex;
+    });
+
+    return menuRend
         | CatchEvent([&](Event e) {
             if (e == Event::Return || e == Event::Character("l")) {
                 if (sel == 0) cur = 1;
