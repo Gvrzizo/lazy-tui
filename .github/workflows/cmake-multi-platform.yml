@@ -1,0 +1,59 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: lazy-tui-linux
+            asset_name: lazy-tui-linux-x86_64
+          - os: macos-latest
+            artifact_name: lazy-tui-macos
+            asset_name: lazy-tui-macos-arm64
+          - os: windows-latest
+            artifact_name: lazy-tui-windows
+            asset_name: lazy-tui-windows-amd64.exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: |
+          build/lazytui
+          build/Release/lazytui.exe
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          lazy-tui-linux/lazytui
+          lazy-tui-macos/lazytui
+          lazy-tui-windows/lazytui.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
