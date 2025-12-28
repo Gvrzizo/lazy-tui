@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build for ${{ matrix.os }}
@@ -20,7 +23,7 @@ jobs:
             asset_name: lazy-tui-macos-arm64
           - os: windows-latest
             artifact_name: lazy-tui-windows
-            asset_name: lazy-tui-windows-amd64.exe
+            asset_name: lazy-tui-windows-x86_64
 
     steps:
     - name: Checkout code
@@ -32,13 +35,25 @@ jobs:
     - name: Build
       run: cmake --build build --config Release
 
+    - name: Package
+      shell: bash
+      run: |
+        mkdir -p dist_files
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp build/Release/lazytui.exe dist_files/
+          cd dist_files && zip ../${{ matrix.asset_name }}.zip lazytui.exe
+        else
+          cp build/lazytui dist_files/
+          cd dist_files && tar -czvf ../${{ matrix.asset_name }}.tar.gz lazytui
+        fi
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
-          build/lazytui
-          build/Release/lazytui.exe
+          *.tar.gz
+          *.zip
 
   release:
     name: Create GitHub Release
@@ -52,8 +67,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          lazy-tui-linux/lazytui
-          lazy-tui-macos/lazytui
-          lazy-tui-windows/lazytui.exe
+          **/*.tar.gz
+          **/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
