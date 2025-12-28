@@ -183,6 +183,9 @@ std::string loadPath() {
     return ".";
 }
 
+static std::string resList, id, selected;
+static fs::path p;
+
 } // namespace
 
 Component assignment(ScreenInteractive &screen, int &cur) {
@@ -373,8 +376,8 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                     return true;
                 }
                 else {
-                    std::string selected = fileList[fileSel];
-                    fs::path p = currentPath / selected;
+                    selected = fileList[fileSel];
+                    p = currentPath / selected;
                     if (fs::is_directory(p)) {
                         currentPath = p;
                         refreshFiles();
@@ -385,8 +388,8 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                             screen.RequestAnimationFrame();
                             savePath(currentPath.string());
                             lazy::run("lazy resource upload '" + p.string() + "'");
-                            std::string resList = lazy::run("lazy resource list");
-                            std::string id = findResourceIdByName(resList, selected);
+                            resList = lazy::run("lazy resource list");
+                            id = findResourceIdByName(resList, selected);
                             lazy::run("lazy assignment submit " + parsedAssignments[sel].id + " -f '" + id + "'");
                             // std::this_thread::sleep_for(std::chrono::seconds(1));
                             std::thread([&] {
@@ -414,7 +417,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             cur = 0;
             return true;
         }
-        if (e == Event::Character('v')) {
+        if (e == Event::Character('v') && !loading) {
             if (!modalShow) {
                 viewContent = "Loading...";
                 modalShow = 1;
@@ -427,7 +430,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             }
             return true;
         }
-        if (e == Event::Character("s")) {
+        if (e == Event::Character("s") && !loading) {
             if (!fsShow) {
                 refreshFiles();
                 fsShow = 1;
