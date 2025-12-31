@@ -31,3 +31,6 @@ target_link_libraries(lazytui PRIVATE
     ftxui::dom
     ftxui::screen
 )
+
+install(TARGETS lazytui RUNTIME DESTINATION bin)
+install(FILES README.md DESTINATION share/doc/lazytui)
