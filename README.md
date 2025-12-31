@@ -6,7 +6,7 @@
 
 ### Linux/MacOS
 
-首先确保你成功安装了[lazy cli](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client)，可以在终端直接使用其命令。
+首先确保你成功安装了v0.2.0-pre.2及以后版本的[lazy cli](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client)，可以在终端直接使用其命令。
 
 **目前在使用这个 TUI 工具前需要手动使用`lazy login`先登录账号，否则可能会有预想外的后果。**
 
@@ -44,6 +44,6 @@ make -j
 ## Todo
 
 - [ ] 多文件提交
-- [ ] 课程的目录、资源查看
+- [ ] 课程的目录查看
 - [ ] 云盘的管理
 - [ ] 更用户友好的界面

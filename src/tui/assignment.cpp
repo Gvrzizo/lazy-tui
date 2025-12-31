@@ -26,7 +26,21 @@ struct Assignment {
     std::string deadline;
     std::string remaining_time;
     std::string link;
+    std::string fileid;
 };
+
+std::string getfileid(std::string id, std::string cont) {
+    std::stringstream ss(cont);
+    std::string line;
+    std::regex file_regex(R"(文件ID:\s*(\d+))");
+    while (std::getline(ss, line)) {
+        std::smatch match;
+        if (std::regex_search(line, match, file_regex)) {
+            return match[1];
+        }
+    }
+    return "";
+}
 
 // 辅助函数：解析作业卡片
 std::vector<Assignment> parseAssignmentTodo(const std::string& raw_output) {
@@ -39,8 +53,7 @@ std::vector<Assignment> parseAssignmentTodo(const std::string& raw_output) {
     // 正则表达式用于精确提取
     std::regex title_id_regex(R"(^\s*(.*?)\s*\[ID:\s*(\d+)\])");
     std::regex course_regex(R"(^\s*(.*?)\s+(\d+)\s*$)");
-    // std::regex deadline_regex(R"(^\s*截止时间:\s*(.*?)\s*\((.*?)\))");
-    std::regex deadline_regex(R"(截止时间:\s*(.*))");
+    std::regex deadline_regex(R"(截止时间:\s*(.*?)\s*\((.*)\))");
 
     while (std::getline(ss, line)) {
 /*
@@ -206,7 +219,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
     std::call_once(flag, [&]() {
         std::thread([&]() {
             // 在后台线程执行耗时操作
-            std::string cont = lazy::run("lazy assignment todo");
+            std::string cont = lazy::run("lazy assignment todo -A");
             auto data = parseAssignmentTodo(cont);
 
             // 切换回主线程前更新数据
@@ -252,12 +265,12 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             vbox({
                 hbox({
                     text(a.title) | bold | (state.focused ? color(Color::Black) : color(Color::White)),
-                    text(" #" + a.id) | color(Color::GrayDark) | dim,
+                    state.focused ? (text(" #" + a.id) | color(Color::GrayDark)) : (text(" #" + a.id) | color(Color::GrayDark) | dim),
                 }),
                 hbox({
                     text(a.course_name) | (state.focused ? color(Color::Purple3) : color(Color::Cyan)) | size(WIDTH, EQUAL, 25),
                     separator(),
-                    text(" ⏳ " + a.remaining_time) | color(Color::Yellow),
+                    text(" ⏳ " + a.remaining_time) | (state.focused ? color(Color::Purple3) : color(Color::Aquamarine1)),
                 }),
             }) | flex,
         });
@@ -323,7 +336,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                 text(" 共 " + std::to_string(parsedAssignments.size()) + " 项") | color(Color::GrayLight),
             }),
             separator(),
-            paragraph(" [v]: 查看作业详情 | [s]: 提交作业 | [q], [h]: 回到主菜单 | [j], [k], [↑], [↓] 选择条目 ") | hcenter | dim,
+            paragraph(" [v]: 查看作业详情 | [s]: 提交作业 | [q], [h]: 回到主菜单 | [j], [k], [↑], [↓] 选择条目 | [r] 刷新 ") | hcenter | dim,
             separator(),
             menu->Render() | frame | vscroll_indicator | flex,
             separator(),
@@ -342,7 +355,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
             separator(),
             paragraph(viewContent) | vscroll_indicator | frame | size(HEIGHT, LESS_THAN, 20),
             separator(),
-            text(" 按 [q], [h], [v] 或是按钮关闭 ") | hcenter | dim,
+            text(" [d] 下载附件 | [q], [h], [v] 或是按钮关闭 ") | hcenter | dim,
         }) | borderDouble | bgcolor(Color::Black) | flex;// size(WIDTH, LESS_THAN, 80);
     });
 
@@ -359,6 +372,22 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         if (modalShow) {
             if (e == Event::Character('h') || e == Event::Character('q') || e == Event::Character('v')) {
                 modalShow = 0;
+                return true;
+            }
+            if (e == Event::Character('d')) {
+                if (!parsedAssignments[sel].fileid.empty()) {
+                    std::thread([&] {
+                        inRes = "附件下载中......";
+                        subNoti = 1;
+                        screen.RequestAnimationFrame();
+                        lazy::run("lazy resource download " + parsedAssignments[sel].fileid);
+                        inRes = "附件下载完毕！";
+                        screen.RequestAnimationFrame();
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                        subNoti = 0;
+                        screen.RequestAnimationFrame();
+                    }).detach();
+                }
                 return true;
             }
             return false;
@@ -384,6 +413,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                     }
                     else if (e == Event::Return) {
                         std::thread([&] {
+                            inRes = "提交中......";
                             subNoti = 1;
                             screen.RequestAnimationFrame();
                             savePath(currentPath.string());
@@ -393,12 +423,15 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                             lazy::run("lazy assignment submit " + parsedAssignments[sel].id + " -f '" + id + "'");
                             // std::this_thread::sleep_for(std::chrono::seconds(1));
                             std::thread([&] {
+                                std::string cont = lazy::run("lazy assignment todo -A");
+                                auto data = parseAssignmentTodo(cont);
+                                parsedAssignments = std::move(data);
+                                placeholders.assign(parsedAssignments.size(), "");
                                 inRes = "提交完毕！";
                                 screen.RequestAnimationFrame();
                                 std::this_thread::sleep_for(std::chrono::seconds(1));
                                 fsShow = 0;
                                 subNoti = 0;
-                                inRes = "提交中......";
                                 screen.RequestAnimationFrame();
                             }).detach();
                         }).detach();
@@ -424,6 +457,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                 std::string target_id = parsedAssignments[sel].id;
                 std::thread([&screen, target_id]() {
                     std::string result = lazy::run("lazy assignment view " + target_id);
+                    parsedAssignments[sel].fileid = getfileid(target_id, result);
                     viewContent = std::move(result);
                     screen.PostEvent(Event::Custom);
                 }).detach();
@@ -435,6 +469,20 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                 refreshFiles();
                 fsShow = 1;
             }
+            return true;
+        }
+        if (e == Event::Character("r") && !loading && !modalShow && !fsShow) {
+            std::thread([&] {
+                inRes = "刷新中......";
+                subNoti = 1;
+                screen.RequestAnimationFrame();
+                std::string cont = lazy::run("lazy assignment todo -A");
+                auto data = parseAssignmentTodo(cont);
+                parsedAssignments = std::move(data);
+                placeholders.assign(parsedAssignments.size(), "");
+                subNoti = 0;
+                screen.RequestAnimationFrame();
+            }).detach();
             return true;
         }
         return false;
