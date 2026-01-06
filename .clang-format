@@ -1,0 +1,158 @@
+# 0. General
+Language: Cpp
+Standard: Latest
+ColumnLimit: 80
+SortIncludes:
+  Enabled: true
+IncludeBlocks: Regroup
+# // STL
+# #include <iostream>
+# #include <string>
+# #include <vector>
+#
+# // Third Party
+# #include "thirdparty/foo.h"
+#
+# // Local
+# #include "myheaders.h"
+# #include "utils.h"
+
+# 1. Indent
+IndentWidth: 4 # Basic Indent
+# if (true) {
+#     int x = 1;
+# }
+
+AccessModifierOffset: -4
+# class MyClass {
+# public:
+#     int val;
+# }
+
+UseTab: Never # Replace tabs with spaces
+
+# 2. Align
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCompound: false
+# int    a;
+# double b;
+# char   c;
+
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCompound: false
+
+# int num1         = 1;
+# int veryLongNum2 = 2;
+
+AlignOperands: Align
+# int sum = veryLongNuma
+#         + b;
+
+AlignTrailingComments: true
+# int thisNum = 1;     // Aligned Comments
+# int thatLongNum = 2; // Aligned Comments
+
+AlignAfterOpenBracket: Align
+# int sum = thisVeryLongFunc(para1,
+#                            para2,
+#                            para3);
+
+DerivePointerAlignment: false # Force alignments for * and &
+PointerAlignment: Left
+# int* ptr;
+# int num = &ptr;
+
+# 3. Braces
+BreakBeforeBraces: Attach # Braces ({) would attach withou changing the line
+BraceWrapping:
+  AfterClass: false
+  AfterFunction: false
+  BeforeCatch: false
+  BeforeElse: false
+  SplitEmptyFunction: false
+# class MyClass {   // AfterClass: false
+# public:
+#     void func() { // AfterFunction: false
+#         // Do something
+#     }
+# };
+#
+# try {
+#     // Do something
+# } catch (const std:exception& exp) { // BeforeCatch: false
+#     // Handle
+# } else {                             // BeforeElse: false
+#     // other
+# }
+#
+# void MyFunc() {} // SplitEmptyFunction: false
+
+# 4. Empty Lines
+MaxEmptyLinesToKeep: 1
+
+# 5. Function Arguments
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: BinPack
+# void func(int a, int b, int c,
+#           int d, int e);
+
+BinPackArguments: true
+# func(1, 2, 3, 4, 5);
+
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+# class MyClass {
+# private:
+#     int a, b, c;
+# public:
+#     MyClass() : a(1), b(2), c(3) {}
+# }
+
+AllowShortFunctionsOnASingleLine: Empty
+# void emptyFunc() {}
+# void shortFunc() {
+#     printf("NotAllowed.");
+# }
+
+AllowShortIfStatementsOnASingleLine: Never
+# if (x > 0)
+#     x -= 1;
+
+AllowShortLoopsOnASingleLine: false
+# for (int i = 0; i < n; i += 1)
+#     sum += i;
+
+# 6. Spaces
+SpacesBeforeTrailingComments: 1
+# int a = 1; // Only 1 space before this comment
+
+SpaceBeforeParens: ControlStatements
+# // Control Statements
+# if (x > 0) {
+#     // Do something
+# }
+#
+# for (int i = 0; i < n; i += 1) {
+#     // Do something
+# }
+#
+# // Not Control Statements
+# void func() {
+#     // Do something
+# }
+
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+#// No spaces inside
+# func(a, b);
+# arr[0];
+# std::vector<int> v;
+# int x = (int)y;
