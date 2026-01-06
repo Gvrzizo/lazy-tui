@@ -11,6 +11,15 @@ using namespace ftxui;
 
 namespace {
 
+class AlwaysFocusable : public ftxui::ComponentBase {
+public:
+    AlwaysFocusable(ftxui::Component inner) {
+        Add(inner);
+    }
+
+    bool Focusable() const override { return true; }
+};
+
 struct Course {
     std::string id;
     std::string name;
@@ -162,10 +171,9 @@ std::string formatTeacher(const std::string& full_list, int max_count = 3) {
     return result + " 等";
 }
 
-}
+} // namespace
 
 Component course(ftxui::ScreenInteractive &screen, int &cur) {
-    // static std::string cont = lazy::run("lazy course list -A");
     static std::vector<Course> parsedCourses;
     static std::vector<Courseware> parsedCoursewares;
     static bool loading = 1;
@@ -187,16 +195,6 @@ Component course(ftxui::ScreenInteractive &screen, int &cur) {
             screen.PostEvent(Event::Custom);
         }).detach();
     });
-    // for (auto i : parsedCourses) {
-    //     std::cout << i.id << i.name << i.teacher << i.time << i.department << i.year << std::endl;
-    // }
-    //
-    // static std::vector<std::string> menu_entries;
-    // if (menu_entries.empty()) {
-    //     for (const auto& c : parsedCourses) {
-    //         menu_entries.push_back(c.id + " | " + c.name + " (" + formatTeacher(c.teacher) + ")" + " | " + c.year);
-    //     }
-    // }
     MenuOption option, optionCourseware;
     option.entries_option.transform = [&](const EntryState& state) {
         if (loading) return text("Loading...");
@@ -278,9 +276,10 @@ Component course(ftxui::ScreenInteractive &screen, int &cur) {
 
     static int sel = 0;
     static int selCourseware = 0;
-    // static auto menu = Menu(&menu_entries, &sel, option);
-    static auto menu = Menu(&placeholders, &sel, option);
-    static auto coursewareMenu = Menu(&placeholdersCourseware, &selCourseware, optionCourseware);
+    static auto menuOri = Menu(&placeholders, &sel, option);
+    static auto menu = Make<AlwaysFocusable>(menuOri);
+    static auto coursewareMenuOri = Menu(&placeholdersCourseware, &selCourseware, optionCourseware);
+    static auto coursewareMenu = Make<AlwaysFocusable>(coursewareMenuOri);
 
     static auto renderer = Renderer(menu, [&] {
         if (loading) {

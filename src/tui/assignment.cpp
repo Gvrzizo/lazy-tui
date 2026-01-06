@@ -18,6 +18,15 @@ using namespace ftxui;
 
 namespace { // 使用匿名命名空间保护内部实现
 
+class AlwaysFocusable : public ftxui::ComponentBase {
+public:
+    AlwaysFocusable(ftxui::Component inner) {
+        Add(inner);
+    }
+
+    bool Focusable() const override { return true; }
+};
+
 struct Assignment {
     std::string title;
     std::string id;
@@ -56,31 +65,6 @@ std::vector<Assignment> parseAssignmentTodo(const std::string& raw_output) {
     std::regex deadline_regex(R"(截止时间:\s*(.*?)\s*\((.*)\))");
 
     while (std::getline(ss, line)) {
-/*
-#ifndef _WIN32
-        // 过滤掉边框字符和空白行
-        if (line.find("╭") != std::string::npos) {
-            current = Assignment();
-            in_card = true;
-            continue;
-        }
-        if (line.find("╰") != std::string::npos) {
-            if (!current.id.empty()) assignments.push_back(current);
-            in_card = false;
-            continue;
-        }
-#else
-        if (line.find("+") != std::string::npos && line.find("[") != std::string::npos) {
-            current = Assignment();
-            in_card = true;
-            continue;
-        }
-        if (line.find("+") != std::string::npos) {
-            if (!current.id.empty()) assignments.push_back(current);
-            in_card = false;
-            continue;
-        }
-#endif*/
         if (line.find("[作业]") != std::string::npos && !in_card) {
             current = Assignment();
             in_card = true;
@@ -188,11 +172,6 @@ std::string loadPath() {
     if (userprofile && *userprofile && fs::exists(userprofile)) {
         return std::string(userprofile);
     }
-    /*
-    std::string home = std::getenv("HOME");
-    if (!home.empty()) return home;
-    home = std::getenv("USERPROFILE");
-    if (!home.empty()) return home;*/
     return ".";
 }
 
@@ -202,9 +181,6 @@ static fs::path p;
 } // namespace
 
 Component assignment(ScreenInteractive &screen, int &cur) {
-    // 1. 获取并解析数据
-    // static std::string cont = lazy::run("lazy assignment todo");
-    // static auto parsedAssignments = parseAssignmentTodo(cont);
     static std::string cont;
     static std::vector<Assignment> parsedAssignments;
     static bool loading = 1;
@@ -231,8 +207,6 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         }).detach();
     });
 
-    // static fs::path currentPath = fs::currentPath();
-    // static fs::path currentPath = fs::path(std::getenv("HOME"));
     static fs::path currentPath = loadPath();
     static std::vector<std::string> fileList;
     static int fileSel = 0;
@@ -254,7 +228,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
 
     refreshFiles();
 
-    // 2. 菜单配置
+    // 菜单配置
     MenuOption option, fsopt;
     option.entries_option.transform = [&](const EntryState& state) {
         if (loading) return text("Loading...");
@@ -298,7 +272,8 @@ Component assignment(ScreenInteractive &screen, int &cur) {
     };
 
     static int sel = 0;
-    static auto menu = Menu(&placeholders, &sel, option);
+    static auto menuOri = Menu(&placeholders, &sel, option);
+    static auto menu = Make<AlwaysFocusable>(menuOri);
 
     static auto fileMenu = Menu(&fileList, &fileSel, fsopt);
     static auto submitWindow = Renderer(fileMenu, [&] {
@@ -320,7 +295,7 @@ Component assignment(ScreenInteractive &screen, int &cur) {
         }) | border;
     });
 
-    // 3. 渲染最终界面
+    // 渲染最终界面
     static auto renderer = Renderer(menu, [&] {
         if (loading) {
             return vbox({
@@ -421,7 +396,6 @@ Component assignment(ScreenInteractive &screen, int &cur) {
                             resList = lazy::run("lazy resource list");
                             id = findResourceIdByName(resList, selected);
                             lazy::run("lazy assignment submit " + parsedAssignments[sel].id + " -f '" + id + "'");
-                            // std::this_thread::sleep_for(std::chrono::seconds(1));
                             std::thread([&] {
                                 std::string cont = lazy::run("lazy assignment todo -A");
                                 auto data = parseAssignmentTodo(cont);
