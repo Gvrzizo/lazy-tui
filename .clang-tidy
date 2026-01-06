@@ -1,0 +1,49 @@
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  misc-*,
+  portability-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-no-malloc,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-narrowing-conversions,
+  -hicpp-no-array-decay,
+  -hicpp-uppercase-literal-suffix,
+  -modernize-use-ranges,
+  -modernize-use-trailing-return-type,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+
+WarningsAsErrors: >
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  misc-*,
+
+FormatStyle: file
+
+CheckOptions:
+  - key: clang-analyzer-config.AnalyzeTemporaryDtors
+    value: 'true'
+
+  - key: bugprone-sizeof-expression.WarnOnSizeOfConstant
+    value: 'true'
+
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+
+  - key: cppcoreguidelines-narrowing-conversions.WarnOnIntegerToFloat
+    value: 'true'
