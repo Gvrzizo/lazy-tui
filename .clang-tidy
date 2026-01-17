@@ -17,6 +17,7 @@ Checks: >
   -cppcoreguidelines-narrowing-conversions,
   -hicpp-no-array-decay,
   -hicpp-uppercase-literal-suffix,
+  -hicpp-braces-around-statements,
   -modernize-use-ranges,
   -modernize-use-trailing-return-type,
   -misc-non-private-member-variables-in-classes,

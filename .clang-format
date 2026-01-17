@@ -64,8 +64,8 @@ AlignAfterOpenBracket: Align
 #                            para3);
 
 DerivePointerAlignment: false # Force alignments for * and &
-PointerAlignment: Left
-# int* ptr;
+PointerAlignment: Right
+# int *ptr;
 # int num = &ptr;
 
 # 3. Braces
@@ -114,19 +114,15 @@ ConstructorInitializerIndentWidth: 4
 #     MyClass() : a(1), b(2), c(3) {}
 # }
 
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: All
 # void emptyFunc() {}
-# void shortFunc() {
-#     printf("NotAllowed.");
-# }
+# void shortFunc() { printf("Allowed."); }
 
-AllowShortIfStatementsOnASingleLine: Never
-# if (x > 0)
-#     x -= 1;
+AllowShortIfStatementsOnASingleLine: Always
+# if (x > 0) x -= 1;
 
 AllowShortLoopsOnASingleLine: false
-# for (int i = 0; i < n; i += 1)
-#     sum += i;
+# for (int i = 0; i < n; i += 1) sum += i;
 
 # 6. Spaces
 SpacesBeforeTrailingComments: 1
